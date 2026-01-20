@@ -14,7 +14,22 @@ function extFromMime(mime) {
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const userId = Number(req.body?.userId);
+    // userId OR creatorUserId (to support both standalone upload and create-with-upload)
+    const id = req.body?.userId || req.body?.creatorUserId;
+    const userId = Number(id);
+    // If we can't determine userId here, we might either error or save to a temp dir.
+    // For now, assuming FE sends fields in order or we default to a safeguard (but path depends on ID).
+    // Note: multer processes fields in order. 'creatorUserId' MUST be sent before 'file'.
+
+    if (!userId) {
+      // Fail safe: if no user ID found, maybe error? 
+      // But cb(err) might capture it. 
+      // Let's assume valid ID or handle generic path (bad practice for this specific structure).
+      // We'll trust the validation step later to catch it, but here we need a path.
+      // Let's error if missing.
+      return cb(new Error("MISSING_USER_ID_FOR_UPLOAD"));
+    }
+
     const baseDir = path.join(process.cwd(), "public", "users", String(userId), "photocards");
     fs.mkdirSync(baseDir, { recursive: true });
     cb(null, baseDir);
@@ -40,6 +55,9 @@ export const photocardImageUpload = multer({
   fileFilter,
   limits: { fileSize: 5 * 1024 * 1024 },
 }).single("file");
+
+// Alias or specific config if needed, but the storage logic above now handles both keys.
+export const photocardCreateUpload = photocardImageUpload;
 
 export async function uploadPhotocardImage(req, res, next) {
   try {
