@@ -8,6 +8,7 @@ import errorHandler from "./middlewares/errorHandler.js";
 import userRoutes from "./routes/userRoutes.js";
 import photocardRoutes from "./routes/photocardRoutes.js";
 import uploadRoutes from "./routes/uploadRoutes.js";
+import listingRoutes from "./routes/listingRoutes.js";
 
 
 const app = express();
@@ -25,6 +26,7 @@ app.use("/public", express.static(path.join(process.cwd(), "public")));
 app.use("/users", userRoutes);
 app.use("/api/photo-cards", photocardRoutes);
 app.use("/api/uploads", uploadRoutes);
+app.use("/api/listings", listingRoutes);
 
 // 에러 핸들러
 app.use(errorHandler);

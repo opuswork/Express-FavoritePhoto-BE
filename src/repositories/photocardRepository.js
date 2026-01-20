@@ -99,41 +99,41 @@ async function getPhotoCardById(photoCardId) {
     return rows[0] ?? null;
 }
 
-  async function updatePhotoCardById(photoCardId, patch) {
+async function updatePhotoCardById(photoCardId, patch) {
     const fields = [];
     const params = [];
 
     if (patch.name !== undefined) {
-      fields.push("name = ?");
-      params.push(patch.name);
+        fields.push("name = ?");
+        params.push(patch.name);
     }
     if (patch.description !== undefined) {
-      fields.push("description = ?");
-      params.push(patch.description);
+        fields.push("description = ?");
+        params.push(patch.description);
     }
     if (patch.genre !== undefined) {
-      fields.push("genre = ?");
-      params.push(patch.genre);
+        fields.push("genre = ?");
+        params.push(patch.genre);
     }
     if (patch.grade !== undefined) {
-      fields.push("grade = ?");
-      params.push(patch.grade);
+        fields.push("grade = ?");
+        params.push(patch.grade);
     }
     if (patch.minPrice !== undefined) {
-      fields.push("min_price = ?");
-      params.push(patch.minPrice);
+        fields.push("min_price = ?");
+        params.push(patch.minPrice);
     }
     if (patch.totalSupply !== undefined) {
-      fields.push("total_supply = ?");
-      params.push(patch.totalSupply);
+        fields.push("total_supply = ?");
+        params.push(patch.totalSupply);
     }
     if (patch.imageUrl !== undefined) {
-      fields.push("image_url = ?");
-      params.push(patch.imageUrl);
+        fields.push("image_url = ?");
+        params.push(patch.imageUrl);
     }
 
     if (fields.length === 0) {
-      return 0;
+        return 0;
     }
 
     // upt_date는 변경 시점으로 갱신
@@ -144,12 +144,20 @@ async function getPhotoCardById(photoCardId) {
     `;
     const [result] = await pool.query(sql, [...params, photoCardId]);
     return result.affectedRows;
-  }
+}
+
+async function createPhotocard({ card_name, card_type, description }) {
+    const query = `INSERT INTO photocard (card_name, card_type, description, created_at) VALUES (?, ?, ?, NOW())`;
+    const params = [card_name, card_type, description];
+    const [result] = await db.query(query, params);
+    return result.insertId;
+}
 
 export default {
     countMonthlyByCreatorUserId,
     createPhotoCard,
     listPhotoCards,
     getPhotoCardById,
-  updatePhotoCardById,
+    updatePhotoCardById,
+    createPhotocard,
 };

@@ -1,6 +1,7 @@
-import photocardRepo from "../repositories/photocardRepository.js";
+import photocardRepo from "../repositories/photoCardRepository.js";
+import { createUserCard, findAllByUserId } from "../repositories/userCardRepository.js";
 
-const MONTHLY_LIMIT = Number(process.env.PHOTO_CARD_MONTHLY_LIMIT || 5);
+const MONTHLY_LIMIT = Number(process.env.PHOTO_CARD_MONTHLY_LIMIT || 3);
 
 const ALLOWED_GRADES = new Set(["common", "rare", "epic", "legendary"]);
 const ALLOWED_GENRES = new Set([
@@ -110,6 +111,12 @@ async function createPhotoCard(creatorUserId, payload) {
         err.meta = { field: "totalSupply", rule: "must be positive number" };
         throw err;
     }
+    if (totalSupply > 10) {
+        const err = new Error("VALIDATION_ERROR");
+        err.status = 400;
+        err.meta = { field: "totalSupply", rule: "cannot exceed 10" };
+        throw err;
+    }
 
     const minPrice = payload?.minPrice != null ? Number(payload.minPrice) : 0;
 
@@ -138,8 +145,16 @@ async function createPhotoCard(creatorUserId, payload) {
         genre,
         grade,
         minPrice,
-        totalSupply,
+        totalSupply: 1, // Start with 1 (current supply)
         imageUrl,
+    });
+
+    // user_card 테이블에 insert
+    await createUserCard({
+        ownerId: creatorUserId,
+        photocardId: id,
+        createdUserId: creatorUserId,
+        quantity: 1
     });
 
     return { photoCardId: id, imageUrl };
@@ -345,4 +360,50 @@ export default {
     listPhotoCards,
     getPhotoCardById,
     updatePhotoCard,
+    listUserPhotoCards,
 };
+
+async function listUserPhotoCards(userId) {
+    if (!Number.isInteger(userId) || userId <= 0) {
+        const err = new Error("VALIDATION_ERROR");
+        err.status = 400;
+        err.meta = { field: "userId", rule: "must be a positive integer" };
+        throw err;
+    }
+    const rows = await findAllByUserId(userId);
+    return rows.map(row => ({
+        userCardId: row.user_card_id,
+        photoCardId: row.photo_card_id,
+        quantity: row.quantity,
+        acquiredDate: row.acquired_date,
+        name: row.name,
+        description: row.description,
+        genre: row.genre,
+        grade: row.grade,
+        minPrice: row.min_price,
+        imageUrl: row.image_url,
+        creatorUserId: row.creator_user_id
+    }));
+}
+
+export async function createPhotoCardWithUserCard(creatorUserId, payload) {
+    // 1. 포토카드 생성
+    const photoCardId = await photocardRepo.createPhotoCard({
+        creatorUserId,
+        name: payload.name,
+        description: payload.description ?? null,
+        genre: payload.genre,
+        grade: payload.grade,
+        minPrice: payload.minPrice ?? 0,
+        totalSupply: payload.totalSupply,
+        imageUrl: payload.imageUrl,
+    });
+    // 2. user_card 생성
+    await createUserCard({
+        ownerId: creatorUserId,
+        photocardId: photoCardId,
+        createdUserId: creatorUserId,
+        quantity: payload.totalSupply
+    });
+    return { photoCardId, createdUserId, quantity: payload.totalSupply };
+}
