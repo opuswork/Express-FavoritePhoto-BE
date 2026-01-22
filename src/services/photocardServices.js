@@ -1,4 +1,4 @@
-import photocardRepo from "../repositories/photoCardRepository.js";
+import photocardRepo from "../repositories/photocardRepository.js";
 import { createUserCard, findAllByUserId, getTotalQuantityByPhotoCardId } from "../repositories/userCardRepository.js";
 
 const MONTHLY_LIMIT = Number(process.env.PHOTO_CARD_MONTHLY_LIMIT || 3);
