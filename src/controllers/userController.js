@@ -8,7 +8,8 @@ const JWT_COOKIE_NAME = "token";
 const COOKIE_OPTIONS = {
   httpOnly: true,
   secure: process.env.NODE_ENV === "production",
-  sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
+  // SameSite=None required when frontend (Netlify) and backend are on different origins
+  sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
   maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
   path: "/",
 };
@@ -48,9 +49,10 @@ export async function login(req, res, next) {
 export async function getMe(req, res, next) {
   try {
     if (!req.userId) {
-      const err = new Error("인증이 필요합니다.");
-      err.status = 401;
-      return next(err);
+      return res.status(401).json({
+        message: "인증이 필요합니다.",
+        redirectTo: `${FRONTEND_URL}/mygallery`,
+      });
     }
     const user = await userService.getUserById(req.userId);
     return res.status(200).json({ user });
@@ -154,7 +156,7 @@ export async function getAuthGoogleCallback(req, res, next) {
 
     const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: "7d" });
     res.cookie(JWT_COOKIE_NAME, token, COOKIE_OPTIONS);
-    return res.redirect(FRONTEND_URL + "/");
+    return res.redirect(FRONTEND_URL + "/mygallery");
   } catch (err) {
     console.error("Google OAuth callback error:", err?.response?.data ?? err.message);
     const message = err.response?.data?.error_description ?? err.message ?? "google_login_failed";
