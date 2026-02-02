@@ -83,10 +83,16 @@ export async function getMyCards(req, res, next) {
 
 /**
  * POST /users/logout
- * Clear JWT cookie
+ * Clear JWT cookie. Must use same path, sameSite, secure as when cookie was set
+ * so the browser actually removes it (especially with SameSite=None in production).
  */
 export function logout(req, res) {
-  res.clearCookie(JWT_COOKIE_NAME, { path: "/" });
+  res.clearCookie(JWT_COOKIE_NAME, {
+    path: "/",
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+  });
   return res.status(200).json({ message: "로그아웃되었습니다." });
 }
 
