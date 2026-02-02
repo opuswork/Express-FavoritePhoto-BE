@@ -1,5 +1,4 @@
 // Express-Favorite-BE/src/app.js
-app.set("trust proxy", 1);
 import express from "express";
 import cookieParser from "cookie-parser";
 import cors from "cors";
@@ -17,6 +16,7 @@ import purchaseRoutes from "./routes/purchaseRoutes.js";
 
 
 const app = express();
+app.set("trust proxy", 1);
 
 // 미들웨어
 app.use(express.json());
