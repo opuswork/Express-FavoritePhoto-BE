@@ -19,6 +19,44 @@ const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
 
 /**
+ * POST /users/register
+ * Body: { email, nickname, password }
+ * On success: create user, set JWT cookie, return { user }
+ */
+export async function register(req, res, next) {
+  try {
+    const { email, nickname, password } = req.body || {};
+    if (!email || typeof email !== "string" || !email.trim()) {
+      return res.status(400).json({ message: "이메일을 입력해 주세요." });
+    }
+    if (!nickname || typeof nickname !== "string" || !nickname.trim()) {
+      return res.status(400).json({ message: "닉네임을 입력해 주세요." });
+    }
+    if (!password || typeof password !== "string") {
+      return res.status(400).json({ message: "비밀번호를 입력해 주세요." });
+    }
+    if (password.length < 8) {
+      return res.status(400).json({ message: "비밀번호는 8자 이상이어야 합니다." });
+    }
+    const user = await userService.createUser({
+      email: email.trim(),
+      nickname: nickname.trim(),
+      password,
+    });
+    const token = jwt.sign(
+      { userId: user.id },
+      JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+    res.cookie(JWT_COOKIE_NAME, token, COOKIE_OPTIONS);
+    return res.status(201).json({ user });
+  } catch (err) {
+    err.status = err.status ?? err.code ?? 500;
+    next(err);
+  }
+}
+
+/**
  * POST /users/login
  * Body: { email, password }
  * On success: set JWT in httpOnly cookie, return { user }
