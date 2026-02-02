@@ -6,6 +6,7 @@ import { requireAuth } from "../middlewares/authMiddleware.js";
 const router = express.Router();
 
 router.post("/register", userController.register);
+router.post("/signup", userController.register); // alias for register
 router.post("/login", userController.login);
 router.post("/logout", userController.logout);
 router.get("/me", requireAuth, userController.getMe);
