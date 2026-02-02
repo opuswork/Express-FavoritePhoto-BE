@@ -33,6 +33,7 @@ app.use(morgan("dev"));
 // 로컬 업로드 파일 정적 서빙
 app.use("/public", express.static(path.join(process.cwd(), "public")));
 
+app.get("/", (req, res) => res.status(200).json({ ok: true, message: "Express-FavoritePhoto-BE" }));
 app.get("/health", (req, res) => {
   res.status(200).send("ok");
 });
