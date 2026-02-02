@@ -1,60 +1,54 @@
-import { pool } from "../db/mysql.js";
+import { prisma } from "../db/prisma.js";
 
-// 포인트 내역 생성
-async function createPointHistory({
-  userId,
-  amount,
-  type,
-  refEntityType,
-  refEntityId,
-}, connection = null) {
-  const sql = `
-    INSERT INTO point_history
-      (user_id, amount, type, ref_entity_type, ref_entity_id)
-    VALUES
-      (?, ?, ?, ?, ?)
-  `;
-  const queryFn = connection ? connection.query.bind(connection) : pool.query.bind(pool);
-  const [result] = await queryFn(sql, [
-    userId,
-    amount,
-    type,
-    refEntityType,
-    refEntityId,
-  ]);
-  return result.insertId;
-}
-
-// 유저의 포인트 내역 조회
-async function getPointHistoryByUserId(userId, { limit = 50, offset = 0 } = {}) {
-  const sql = `
-    SELECT 
-      point_history_id,
-      user_id,
-      amount,
+async function createPointHistory(
+  { userId, amount, type, refEntityType, refEntityId },
+  tx = null
+) {
+  const client = tx ?? prisma;
+  const row = await client.pointHistory.create({
+    data: {
+      userId: Number(userId),
+      amount: Number(amount),
       type,
-      ref_entity_type,
-      ref_entity_id,
-      reg_date
-    FROM point_history
-    WHERE user_id = ?
-    ORDER BY reg_date DESC
-    LIMIT ? OFFSET ?
-  `;
-  const [rows] = await pool.query(sql, [userId, limit, offset]);
-  return rows;
+      refEntityType: refEntityType ?? null,
+      refEntityId: refEntityId ?? null,
+    },
+  });
+  return row.id;
 }
 
-// 포인트 내역 ID로 조회
+async function getPointHistoryByUserId(userId, { limit = 50, offset = 0 } = {}) {
+  const rows = await prisma.pointHistory.findMany({
+    where: { userId: Number(userId) },
+    orderBy: { regDate: "desc" },
+    take: limit,
+    skip: offset,
+  });
+  return rows.map((r) => ({
+    point_history_id: r.id,
+    user_id: r.userId,
+    amount: r.amount,
+    type: r.type,
+    ref_entity_type: r.refEntityType,
+    ref_entity_id: r.refEntityId,
+    reg_date: r.regDate,
+  }));
+}
+
 async function getPointHistoryById(pointHistoryId) {
-  const sql = `
-    SELECT *
-    FROM point_history
-    WHERE point_history_id = ?
-    LIMIT 1
-  `;
-  const [rows] = await pool.query(sql, [pointHistoryId]);
-  return rows[0] ?? null;
+  const row = await prisma.pointHistory.findUnique({
+    where: { id: Number(pointHistoryId) },
+  });
+  if (!row) return null;
+  return {
+    point_history_id: row.id,
+    user_id: row.userId,
+    amount: row.amount,
+    type: row.type,
+    ref_entity_type: row.refEntityType,
+    ref_entity_id: row.refEntityId,
+    reg_date: row.regDate,
+  };
 }
 
 export default {

@@ -1,3 +1,5 @@
+// Express-Favorite-BE/src/app.js
+app.set("trust proxy", 1);
 import express from "express";
 import cookieParser from "cookie-parser";
 import cors from "cors";
@@ -30,6 +32,10 @@ app.use(morgan("dev"));
 
 // 로컬 업로드 파일 정적 서빙
 app.use("/public", express.static(path.join(process.cwd(), "public")));
+
+app.get("/health", (req, res) => {
+  res.status(200).send("ok");
+});
 
 // 라우터
 app.use("/users", userRoutes);

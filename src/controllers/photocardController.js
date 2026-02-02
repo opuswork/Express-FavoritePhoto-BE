@@ -1,4 +1,6 @@
 import photocardService, { createPhotoCardWithUserCard } from "../services/photocardServices.js";
+import photocardRepository from "../repositories/photocardRepository.js";
+import userCardRepository from "../repositories/userCardRepository.js";
 
 export async function create(req, res, next) {
     try {
@@ -87,14 +89,18 @@ export async function createPhotocardWithUserCard(req, res, next) {
         if (!card_name || !card_type || !owner_id || !quantity) {
             return res.status(400).json({ ok: false, error: "필수값 누락" });
         }
-        const photocard = await createPhotocard({ card_name, card_type, description });
+        const photocard = await photocardRepository.createPhotocard({
+            card_name,
+            card_type,
+            description,
+            owner_id,
+        });
         const createdUserId = req.user?.id || owner_id;
-        // photocard 생성 후 user_card도 생성
-        await createPhotocard.createUserCard({
+        await userCardRepository.createUserCard({
             ownerId: owner_id,
             photocardId: photocard.id,
-            createdUserId,
-            quantity
+            userId: createdUserId,
+            quantity,
         });
         return res.status(201).json({ ok: true, photocard });
     } catch (err) {

@@ -1,76 +1,50 @@
-import { pool } from "../db/mysql.js";
+import { prisma } from "../db/prisma.js";
 
-/**
- * user table (use backticks in SQL: `user` - MySQL reserved word).
- * Schema: user_id (PK), email, nickname, password_hash, points, reg_date, upt_date
- * Rows returned with user_id aliased as id for service layer compatibility.
- */
+/** Map Prisma User to legacy row shape (id, email, nickname, password_hash, points, reg_date, upt_date) */
+function toRow(user) {
+  if (!user) return null;
+  return {
+    id: user.id,
+    email: user.email,
+    nickname: user.nickname,
+    password_hash: user.passwordHash,
+    points: user.points,
+    reg_date: user.regDate,
+    upt_date: user.uptDate,
+  };
+}
 
 async function findById(id) {
-  const sql = `
-    SELECT
-      user_id AS id,
-      email,
-      nickname,
-      password_hash,
-      points,
-      reg_date,
-      upt_date
-    FROM \`user\`
-    WHERE user_id = ?
-    LIMIT 1
-  `;
-  const [rows] = await pool.query(sql, [id]);
-  return rows[0] ?? null;
+  const user = await prisma.user.findUnique({
+    where: { id: Number(id) },
+  });
+  return toRow(user);
 }
 
 async function findByEmail(email) {
-  const sql = `
-    SELECT
-      user_id AS id,
-      email,
-      nickname,
-      password_hash,
-      points,
-      reg_date,
-      upt_date
-    FROM \`user\`
-    WHERE email = ?
-    LIMIT 1
-  `;
-  const [rows] = await pool.query(sql, [email]);
-  return rows[0] ?? null;
+  const user = await prisma.user.findUnique({
+    where: { email },
+  });
+  return toRow(user);
 }
 
 async function findByNickname(nickname) {
-  const sql = `
-    SELECT
-      user_id AS id,
-      email,
-      nickname,
-      password_hash,
-      points,
-      reg_date,
-      upt_date
-    FROM \`user\`
-    WHERE nickname = ?
-    LIMIT 1
-  `;
-  const [rows] = await pool.query(sql, [nickname]);
-  return rows[0] ?? null;
+  const user = await prisma.user.findFirst({
+    where: { nickname },
+  });
+  return toRow(user);
 }
 
 async function save(user) {
   const { email, nickname, password_hash } = user;
-  const sql = `
-    INSERT INTO \`user\`
-      (email, nickname, password_hash)
-    VALUES
-      (?, ?, ?)
-  `;
-  const [result] = await pool.query(sql, [email, nickname, password_hash ?? null]);
-  const inserted = await findById(result.insertId);
-  return inserted;
+  const created = await prisma.user.create({
+    data: {
+      email,
+      nickname,
+      passwordHash: password_hash ?? null,
+    },
+  });
+  return toRow(created);
 }
 
 async function update(id, data) {
@@ -78,15 +52,16 @@ async function update(id, data) {
   const keys = Object.keys(data).filter((k) => allowed.includes(k));
   if (keys.length === 0) return findById(id);
 
-  const setClause = keys.map((k) => `\`${k}\` = ?`).join(", ");
-  const values = keys.map((k) => data[k]);
-  const sql = `
-    UPDATE \`user\`
-    SET ${setClause}
-    WHERE user_id = ?
-  `;
-  await pool.query(sql, [...values, id]);
-  return findById(id);
+  const updateData = {};
+  if (data.email !== undefined) updateData.email = data.email;
+  if (data.nickname !== undefined) updateData.nickname = data.nickname;
+  if (data.password_hash !== undefined) updateData.passwordHash = data.password_hash;
+
+  const updated = await prisma.user.update({
+    where: { id: Number(id) },
+    data: updateData,
+  });
+  return toRow(updated);
 }
 
 async function createOrUpdate(provider, providerId, email, name) {
@@ -102,20 +77,10 @@ async function createOrUpdate(provider, providerId, email, name) {
 }
 
 async function findAll() {
-  const sql = `
-    SELECT
-      user_id AS id,
-      email,
-      nickname,
-      password_hash,
-      points,
-      reg_date,
-      upt_date
-    FROM \`user\`
-    ORDER BY user_id ASC
-  `;
-  const [rows] = await pool.query(sql);
-  return rows;
+  const users = await prisma.user.findMany({
+    orderBy: { id: "asc" },
+  });
+  return users.map(toRow);
 }
 
 export default {
