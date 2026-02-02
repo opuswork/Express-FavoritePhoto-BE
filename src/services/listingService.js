@@ -36,9 +36,9 @@ async function createListing(sellerUserId, payload) {
     // user_card 존재 및 소유권 확인
     const userCard = await listingRepo.getUserCardById(userCardId);
     if (!userCard) {
-        const err = new Error("NOT_FOUND");
+        const err = new Error("user_card not found");
         err.status = 404;
-        err.meta = { message: "user_card not found" };
+        err.meta = { message: "user_card not found", userCardId };
         throw err;
     }
 
