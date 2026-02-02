@@ -15,6 +15,9 @@ const ALLOWED_GENRES = new Set([
     "콜라보",
     "팬클럽",
     "기타",
+    "풍경",
+    "여행",
+    "인물",
 ]);
 
 function normalizeGrade(value) {
@@ -128,10 +131,11 @@ async function createPhotoCard(creatorUserId, payload) {
         throw err;
     }
 
-    // imageUrl은 우리 서버가 서빙하는 public 경로만 허용(아무 URL 저장 방지)
+    // Allow either (1) local public path or (2) external https URL (e.g. Vercel Blob)
+    const isExternalUrl = imageUrl.startsWith("https://");
     const expectedPathPrefix = `/public/users/${creatorUserId}/photocards/`;
-    const imagePath = normalizeToPath(imageUrl);
-    if (!imagePath.startsWith(expectedPathPrefix)) {
+    const imagePath = isExternalUrl ? imageUrl : normalizeToPath(imageUrl);
+    if (!isExternalUrl && !imagePath.startsWith(expectedPathPrefix)) {
         const err = new Error("INVALID_IMAGE_URL");
         err.status = 400;
         err.meta = { expectedPathPrefix };
