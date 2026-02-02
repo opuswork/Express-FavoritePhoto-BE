@@ -1,232 +1,185 @@
-import { pool } from "../db/mysql.js";
+import { prisma } from "../db/prisma.js";
 
-// 리스팅 생성
+function listingRow(row) {
+  if (!row) return null;
+  const l = row.listing ?? row;
+  const uc = row.userCard ?? l?.userCard;
+  const pc = row.photoCard ?? uc?.photoCard ?? l?.photoCard;
+  const seller = row.seller ?? l?.seller;
+  return {
+    listing_id: l.id,
+    user_card_id: l.userCardId,
+    seller_user_id: l.sellerUserId,
+    sale_type: l.saleType,
+    status: l.status,
+    quantity: l.quantity,
+    price_per_unit: l.pricePerUnit != null ? Number(l.pricePerUnit) : null,
+    desired_grade: l.desiredGrade,
+    desired_genre: l.desiredGenre,
+    desired_desc: l.desiredDesc,
+    reg_date: l.regDate,
+    upt_date: l.uptDate,
+    photo_card_id: pc?.id,
+    name: pc?.name,
+    description: pc?.description,
+    genre: pc?.genre,
+    grade: pc?.grade,
+    min_price: pc?.minPrice,
+    image_url: pc?.imageUrl,
+    creator_user_id: pc?.creatorUserId,
+    seller_nickname: seller?.nickname ?? null,
+  };
+}
+
 async function createListing({
-    userCardId,
-    sellerUserId,
-    saleType,
-    status,
-    quantity,
-    pricePerUnit,
-    desiredGrade = null,
-    desiredGenre = null,
-    desiredDesc = null,
+  userCardId,
+  sellerUserId,
+  saleType,
+  status,
+  quantity,
+  pricePerUnit,
+  desiredGrade = null,
+  desiredGenre = null,
+  desiredDesc = null,
 }) {
-    const sql = `
-        INSERT INTO listing
-            (user_card_id, seller_user_id, sale_type, status, quantity, price_per_unit, desired_grade, desired_genre, desired_desc)
-        VALUES
-            (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `;
-    const [result] = await pool.query(sql, [
-        userCardId,
-        sellerUserId,
-        saleType,
-        status,
-        quantity,
-        pricePerUnit,
-        desiredGrade ?? null,
-        desiredGenre ?? null,
-        desiredDesc ?? null,
-    ]);
-    return result.insertId;
+  const listing = await prisma.listing.create({
+    data: {
+      userCardId: Number(userCardId),
+      sellerUserId: Number(sellerUserId),
+      saleType,
+      status,
+      quantity: Number(quantity),
+      pricePerUnit: Number(pricePerUnit),
+      desiredGrade: desiredGrade ?? null,
+      desiredGenre: desiredGenre ?? null,
+      desiredDesc: desiredDesc ?? null,
+    },
+  });
+  return listing.id;
 }
 
-// 리스팅 ID로 조회
 async function getListingById(listingId) {
-    const sql = `
-        SELECT
-            l.listing_id,
-            l.user_card_id,
-            l.seller_user_id,
-            l.sale_type,
-            l.status,
-            l.quantity,
-            l.price_per_unit,
-            NULL AS desired_grade,
-            NULL AS desired_genre,
-            NULL AS desired_desc,
-            l.reg_date,
-            l.upt_date,
-            uc.photo_card_id,
-            pc.name,
-            pc.description,
-            pc.genre,
-            pc.grade,
-            pc.min_price,
-            pc.image_url,
-            pc.creator_user_id,
-            u.nickname AS seller_nickname
-        FROM listing l
-        JOIN user_card uc ON l.user_card_id = uc.user_card_id
-        JOIN photo_card pc ON uc.photo_card_id = pc.photo_card_id
-        LEFT JOIN \`user\` u ON l.seller_user_id = u.user_id
-        WHERE l.listing_id = ?
-        LIMIT 1
-    `;
-    const [rows] = await pool.query(sql, [listingId]);
-    return rows[0] ?? null;
+  const row = await prisma.listing.findUnique({
+    where: { id: Number(listingId) },
+    include: {
+      userCard: { include: { photoCard: true } },
+      seller: { select: { nickname: true } },
+    },
+  });
+  if (!row) return null;
+  const pc = row.userCard?.photoCard;
+  return listingRow({
+    listing: row,
+    photoCard: pc,
+    seller: row.seller,
+    userCard: row.userCard,
+  });
 }
 
-// 리스팅 목록 조회 (필터링 및 정렬)
 async function listListings({
-    limit,
-    cursor,
-    sortBy = "reg_date",
-    sortOrder = "DESC",
-    status = "ACTIVE",
+  limit,
+  cursor,
+  sortBy = "reg_date",
+  sortOrder = "DESC",
+  status = "ACTIVE",
 }) {
-    // 정렬 필드 검증
-    const allowedSortFields = {
-        reg_date: "l.reg_date",
-        price: "l.price_per_unit",
-    };
-    const sortField = allowedSortFields[sortBy] || allowedSortFields.reg_date;
-    const order = sortOrder.toUpperCase() === "ASC" ? "ASC" : "DESC";
+  const order = sortOrder.toUpperCase() === "ASC" ? "asc" : "desc";
+  const orderField = sortBy === "price" ? "pricePerUnit" : "regDate";
+  const where = { status };
+  const orderBy = [{ [orderField]: order }, { id: "desc" }];
+  const cursorClause =
+    cursor != null
+      ? { cursor: { id: Number(cursor) }, skip: 1 }
+      : {};
 
-    // status 필터
-    const statusFilter = status ? "AND l.status = ?" : "";
-    const statusParam = status ? [status] : [];
+  const rows = await prisma.listing.findMany({
+    where,
+    take: limit,
+    ...cursorClause,
+    orderBy,
+    include: {
+      userCard: { include: { photoCard: true } },
+      seller: { select: { nickname: true } },
+    },
+  });
 
-    let sql = `
-        SELECT
-            l.listing_id,
-            l.user_card_id,
-            l.seller_user_id,
-            l.sale_type,
-            l.status,
-            l.quantity,
-            l.price_per_unit,
-            NULL AS desired_grade,
-            NULL AS desired_genre,
-            NULL AS desired_desc,
-            l.reg_date,
-            l.upt_date,
-            uc.photo_card_id,
-            pc.name,
-            pc.description,
-            pc.genre,
-            pc.grade,
-            pc.min_price,
-            pc.image_url,
-            pc.creator_user_id,
-            u.nickname AS seller_nickname
-        FROM listing l
-        JOIN user_card uc ON l.user_card_id = uc.user_card_id
-        JOIN photo_card pc ON uc.photo_card_id = pc.photo_card_id
-        LEFT JOIN \`user\` u ON l.seller_user_id = u.user_id
-        WHERE 1=1
-        ${statusFilter}
-    `;
-
-    const params = [...statusParam];
-
-    // cursor 기반 페이지네이션 (listing_id를 cursor로 사용)
-    if (cursor != null) {
-        // cursor가 가리키는 리스팅의 정렬 기준값을 가져와서 비교
-        if (sortBy === "reg_date") {
-            sql += ` AND (l.reg_date ${order === "DESC" ? "<" : ">"} (SELECT reg_date FROM listing WHERE listing_id = ?)
-                    OR (l.reg_date = (SELECT reg_date FROM listing WHERE listing_id = ?) AND l.listing_id < ?))`;
-            params.push(cursor, cursor, cursor);
-        } else if (sortBy === "price") {
-            sql += ` AND (l.price_per_unit ${order === "DESC" ? "<" : ">"} (SELECT price_per_unit FROM listing WHERE listing_id = ?) 
-                    OR (l.price_per_unit = (SELECT price_per_unit FROM listing WHERE listing_id = ?) 
-                    AND l.listing_id < ?))`;
-            params.push(cursor, cursor, cursor);
-        } else {
-            sql += ` AND l.listing_id < ?`;
-            params.push(cursor);
-        }
-    }
-
-    sql += ` ORDER BY ${sortField} ${order}, l.listing_id DESC LIMIT ?`;
-    params.push(limit);
-
-    const [rows] = await pool.query(sql, params);
-    return rows;
+  return rows.map((r) =>
+    listingRow({
+      listing: r,
+      photoCard: r.userCard?.photoCard,
+      seller: r.seller,
+      userCard: r.userCard,
+    })
+  );
 }
 
-// 리스팅 수정
 async function updateListing(listingId, patch) {
-    const fields = [];
-    const params = [];
+  const data = {};
+  if (patch.quantity !== undefined) data.quantity = patch.quantity;
+  if (patch.pricePerUnit !== undefined) data.pricePerUnit = patch.pricePerUnit;
+  if (patch.status !== undefined) data.status = patch.status;
+  if (patch.saleType !== undefined) data.saleType = patch.saleType;
+  if (Object.keys(data).length === 0) return 0;
 
-    if (patch.quantity !== undefined) {
-        fields.push("quantity = ?");
-        params.push(patch.quantity);
-    }
-    if (patch.pricePerUnit !== undefined) {
-        fields.push("price_per_unit = ?");
-        params.push(patch.pricePerUnit);
-    }
-    if (patch.status !== undefined) {
-        fields.push("status = ?");
-        params.push(patch.status);
-    }
-    if (patch.saleType !== undefined) {
-        fields.push("sale_type = ?");
-        params.push(patch.saleType);
-    }
-
-    if (fields.length === 0) {
-        return 0;
-    }
-
-    const sql = `
-        UPDATE listing
-        SET ${fields.join(", ")}, upt_date = NOW()
-        WHERE listing_id = ?
-    `;
-    const [result] = await pool.query(sql, [...params, listingId]);
-    return result.affectedRows;
+  const result = await prisma.listing.updateMany({
+    where: { id: Number(listingId) },
+    data,
+  });
+  return result.count;
 }
 
-// 리스팅 삭제 (실제 레코드 삭제)
 async function deleteListing(listingId) {
-    const sql = `
-        DELETE FROM listing
-        WHERE listing_id = ?
-    `;
-    const [result] = await pool.query(sql, [listingId]);
-    return result.affectedRows;
+  const result = await prisma.listing.deleteMany({
+    where: { id: Number(listingId) },
+  });
+  return result.count;
 }
 
-// user_card_id로 리스팅 조회 (중복 등록 방지용)
 async function getActiveListingByUserCardId(userCardId) {
-    const sql = `
-        SELECT *
-        FROM listing
-        WHERE user_card_id = ? AND status = 'ACTIVE'
-        LIMIT 1
-    `;
-    const [rows] = await pool.query(sql, [userCardId]);
-    return rows[0] ?? null;
+  const row = await prisma.listing.findFirst({
+    where: {
+      userCardId: Number(userCardId),
+      status: "ACTIVE",
+    },
+  });
+  if (!row) return null;
+  return {
+    listing_id: row.id,
+    user_card_id: row.userCardId,
+    seller_user_id: row.sellerUserId,
+    sale_type: row.saleType,
+    status: row.status,
+    quantity: row.quantity,
+    price_per_unit: row.pricePerUnit,
+    desired_grade: row.desiredGrade,
+    desired_genre: row.desiredGenre,
+    desired_desc: row.desiredDesc,
+    reg_date: row.regDate,
+    upt_date: row.uptDate,
+  };
 }
 
-// user_card 정보 조회 (소유권 확인용)
 async function getUserCardById(userCardId) {
-    const sql = `
-        SELECT
-            uc.user_card_id,
-            uc.user_id,
-            uc.quantity,
-            uc.photo_card_id,
-            pc.total_supply
-        FROM user_card uc
-        JOIN photo_card pc ON uc.photo_card_id = pc.photo_card_id
-        WHERE uc.user_card_id = ?
-        LIMIT 1
-    `;
-    const [rows] = await pool.query(sql, [userCardId]);
-    return rows[0] ?? null;
+  const row = await prisma.userCard.findUnique({
+    where: { id: Number(userCardId) },
+    include: { photoCard: true },
+  });
+  if (!row) return null;
+  return {
+    user_card_id: row.id,
+    user_id: row.userId,
+    quantity: row.quantity,
+    photo_card_id: row.photoCardId,
+    total_supply: row.photoCard?.totalSupply ?? 0,
+  };
 }
 
 export default {
-    createListing,
-    getListingById,
-    listListings,
-    updateListing,
-    deleteListing,
-    getActiveListingByUserCardId,
-    getUserCardById,
+  createListing,
+  getListingById,
+  listListings,
+  updateListing,
+  deleteListing,
+  getActiveListingByUserCardId,
+  getUserCardById,
 };

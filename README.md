@@ -1,27 +1,49 @@
 # BE
 back-end
 
-## DB connection (MySQL in Docker)
+## DB: Prisma + PostgreSQL
 
-This backend connects to MySQL using `.env`:
+This backend uses **Prisma** with **PostgreSQL** (no MySQL).
 
-- `DB_HOST=127.0.0.1` — host where MySQL is reachable
-- `DB_PORT=3307` — host port that forwards to MySQL in Docker
+### Setup
 
-**If you see `ECONNREFUSED 127.0.0.1:3307`:**
+1. **Environment**
+   - Copy `.env.example` to `.env`.
+   - Set `DATABASE_URL` to your PostgreSQL connection string, e.g.:
+     ```bash
+     DATABASE_URL="postgresql://USER:PASSWORD@HOST:5432/DATABASE?schema=public"
+     ```
 
-1. Start the MySQL container from the **project root** (where `docker-compose.yml` is):
+2. **Install and generate Prisma client**
    ```bash
-   docker compose up -d db
+   npm install
    ```
-   or `docker-compose up -d db`.
+   (Runs `prisma generate` via `postinstall`.)
 
-2. Confirm the container is running and port 3307 is published:
+3. **Create schema in the database**
+   - First time (creates tables):
+     ```bash
+     npx prisma db push
+     ```
+   - Or use migrations:
+     ```bash
+     npx prisma migrate dev --name init
+     ```
+
+4. **Run the server**
    ```bash
-   docker ps
+   npm run dev
    ```
-   You should see `favorite-db` (or the db service) with `0.0.0.0:3307->3306/tcp`.
 
-3. If the container was started without the compose file, ensure the host port is **3307** (e.g. `-p 3307:3306`).
+### Scripts
 
-4. Wait a few seconds after `docker start` — MySQL inside the container may need time to become ready.
+- `npm run start` — run server
+- `npm run dev` — run with nodemon
+- `npm run db:push` — push schema to DB (no migration history)
+- `npm run db:migrate` — run pending migrations (e.g. in production)
+- `npm run db:studio` — open Prisma Studio
+
+### If you see connection errors
+
+- Ensure PostgreSQL is running and reachable at the host/port in `DATABASE_URL`.
+- For local Docker PostgreSQL, start the container and use its host/port in `DATABASE_URL`.

@@ -1,17 +1,14 @@
+// Express-Favorite-BE/src/server.js
+
 import "dotenv/config";
 import app from "./app.js";
-import { pool } from "./db/mysql.js";
-
-async function connectDb() {
-  const conn = await pool.getConnection();
-  conn.release();
-}
+import { prisma } from "./db/prisma.js";
 
 async function start() {
   const port = process.env.PORT ?? 3000;
 
   try {
-    await connectDb();
+    await prisma.$connect();
     console.log("DB 연결 성공");
 
     app.listen(port, "0.0.0.0", () => {
@@ -25,12 +22,10 @@ async function start() {
 
 start();
 
-process.on("SIGINT", async () => {
-  await pool.end();
+async function shutdown() {
+  await prisma.$disconnect();
   process.exit(0);
-});
+}
 
-process.on("SIGTERM", async () => {
-  await pool.end();
-  process.exit(0);
-});
+process.on("SIGINT", shutdown);
+process.on("SIGTERM", shutdown);

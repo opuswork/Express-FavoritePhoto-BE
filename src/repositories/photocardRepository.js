@@ -1,205 +1,159 @@
-import { pool } from "../db/mysql.js";
+import { prisma } from "../db/prisma.js";
 
 async function countMonthlyByCreatorUserId(creatorUserId, from, to) {
-    const sql = `
-    SELECT COUNT(*) AS cnt
-    FROM photo_card
-    WHERE creator_user_id = ?
-      AND reg_date >= ?
-      AND reg_date < ?
-  `;
-    const [rows] = await pool.query(sql, [creatorUserId, from, to]);
-    return Number(rows[0]?.cnt || 0);
+  const result = await prisma.photoCard.count({
+    where: {
+      creatorUserId: Number(creatorUserId),
+      regDate: {
+        gte: from,
+        lt: to,
+      },
+    },
+  });
+  return result;
 }
 
 async function createPhotoCard({
-    creatorUserId,
-    name,
-    description,
-    genre,
-    grade,
-    minPrice,
-    totalSupply,
-    imageUrl,
+  creatorUserId,
+  name,
+  description,
+  genre,
+  grade,
+  minPrice,
+  totalSupply,
+  imageUrl,
 }) {
-    const sql = `
-    INSERT INTO photo_card
-      (creator_user_id, name, description, genre, grade, min_price, total_supply, image_url)
-    VALUES
-      (?, ?, ?, ?, ?, ?, ?, ?)
-  `;
-    const [result] = await pool.query(sql, [
-        creatorUserId,
-        name,
-        description ?? null,
-        genre,
-        grade,
-        minPrice ?? 0,
-        totalSupply,
-        imageUrl,
-    ]);
-
-    return result.insertId;
+  const card = await prisma.photoCard.create({
+    data: {
+      creatorUserId: Number(creatorUserId),
+      name,
+      description: description ?? null,
+      genre: genre ?? null,
+      grade: grade ?? null,
+      minPrice: minPrice ?? 0,
+      totalSupply: Number(totalSupply),
+      imageUrl: imageUrl ?? null,
+    },
+  });
+  return card.id;
 }
 
 async function listPhotoCards({ limit, cursor }) {
-    const baseSql = `
-    SELECT
-      photo_card_id,
-      creator_user_id,
-      name,
-      description,
-      genre,
-      grade,
-      min_price,
-      total_supply,
-      image_url,
-      reg_date,
-      upt_date
-    FROM photo_card
-  `;
-
-    if (cursor != null) {
-        const sql = `${baseSql}
-    WHERE photo_card_id < ?
-    ORDER BY photo_card_id DESC
-    LIMIT ?
-    `;
-        const [rows] = await pool.query(sql, [cursor, limit]);
-        return rows;
-    }
-
-    const sql = `${baseSql}
-    ORDER BY photo_card_id DESC
-    LIMIT ?
-    `;
-    const [rows] = await pool.query(sql, [limit]);
-    return rows;
+  const where = cursor != null ? { id: { lt: Number(cursor) } } : {};
+  const rows = await prisma.photoCard.findMany({
+    where,
+    orderBy: { id: "desc" },
+    take: limit,
+  });
+  return rows.map((r) => ({
+    photo_card_id: r.id,
+    creator_user_id: r.creatorUserId,
+    name: r.name,
+    description: r.description,
+    genre: r.genre,
+    grade: r.grade,
+    min_price: r.minPrice,
+    total_supply: r.totalSupply,
+    image_url: r.imageUrl,
+    reg_date: r.regDate,
+    upt_date: r.uptDate,
+  }));
 }
 
 async function getPhotoCardById(photoCardId) {
-    const sql = `
-    SELECT
-      photo_card_id,
-      creator_user_id,
-      name,
-      description,
-      genre,
-      grade,
-      min_price,
-      total_supply,
-      image_url,
-      reg_date,
-      upt_date
-    FROM photo_card
-    WHERE photo_card_id = ?
-    LIMIT 1
-  `;
-    const [rows] = await pool.query(sql, [photoCardId]);
-    return rows[0] ?? null;
+  const card = await prisma.photoCard.findUnique({
+    where: { id: Number(photoCardId) },
+  });
+  if (!card) return null;
+  return {
+    photo_card_id: card.id,
+    creator_user_id: card.creatorUserId,
+    name: card.name,
+    description: card.description,
+    genre: card.genre,
+    grade: card.grade,
+    min_price: card.minPrice,
+    total_supply: card.totalSupply,
+    image_url: card.imageUrl,
+    reg_date: card.regDate,
+    upt_date: card.uptDate,
+  };
 }
 
 async function updatePhotoCardById(photoCardId, patch) {
-    const fields = [];
-    const params = [];
+  const data = {};
+  if (patch.name !== undefined) data.name = patch.name;
+  if (patch.description !== undefined) data.description = patch.description;
+  if (patch.genre !== undefined) data.genre = patch.genre;
+  if (patch.grade !== undefined) data.grade = patch.grade;
+  if (patch.minPrice !== undefined) data.minPrice = patch.minPrice;
+  if (patch.totalSupply !== undefined) data.totalSupply = patch.totalSupply;
+  if (patch.imageUrl !== undefined) data.imageUrl = patch.imageUrl;
+  if (Object.keys(data).length === 0) return 0;
 
-    if (patch.name !== undefined) {
-        fields.push("name = ?");
-        params.push(patch.name);
-    }
-    if (patch.description !== undefined) {
-        fields.push("description = ?");
-        params.push(patch.description);
-    }
-    if (patch.genre !== undefined) {
-        fields.push("genre = ?");
-        params.push(patch.genre);
-    }
-    if (patch.grade !== undefined) {
-        fields.push("grade = ?");
-        params.push(patch.grade);
-    }
-    if (patch.minPrice !== undefined) {
-        fields.push("min_price = ?");
-        params.push(patch.minPrice);
-    }
-    if (patch.totalSupply !== undefined) {
-        fields.push("total_supply = ?");
-        params.push(patch.totalSupply);
-    }
-    if (patch.imageUrl !== undefined) {
-        fields.push("image_url = ?");
-        params.push(patch.imageUrl);
-    }
-
-    if (fields.length === 0) {
-        return 0;
-    }
-
-    // upt_date는 변경 시점으로 갱신
-    const sql = `
-    UPDATE photo_card
-    SET ${fields.join(", ")}, upt_date = NOW()
-    WHERE photo_card_id = ?
-    `;
-    const [result] = await pool.query(sql, [...params, photoCardId]);
-    return result.affectedRows;
+  const result = await prisma.photoCard.updateMany({
+    where: { id: Number(photoCardId) },
+    data,
+  });
+  return result.count;
 }
 
-// 동일한 포토카드 찾기 (name, description, genre, grade, min_price, image_url로 검색)
 async function findDuplicatePhotoCard({ name, description, genre, grade, minPrice, imageUrl }) {
-    const sql = `
-        SELECT photo_card_id, total_supply
-        FROM photo_card
-        WHERE name = ?
-          AND (description = ? OR (description IS NULL AND ? IS NULL))
-          AND genre = ?
-          AND grade = ?
-          AND min_price = ?
-          AND image_url = ?
-        LIMIT 1
-    `;
-    const [rows] = await pool.query(sql, [name, description, description, genre, grade, minPrice, imageUrl]);
-    return rows[0] ?? null;
+  const card = await prisma.photoCard.findFirst({
+    where: {
+      name,
+      description: description ?? null,
+      genre: genre ?? null,
+      grade: grade ?? null,
+      minPrice: minPrice ?? 0,
+      imageUrl: imageUrl ?? null,
+    },
+    select: { id: true, totalSupply: true },
+  });
+  if (!card) return null;
+  return { photo_card_id: card.id, total_supply: card.totalSupply };
 }
 
-// total_supply 증가
 async function incrementTotalSupply(photoCardId, increment = 1) {
-    const sql = `
-        UPDATE photo_card
-        SET total_supply = total_supply + ?, upt_date = NOW()
-        WHERE photo_card_id = ?
-    `;
-    const [result] = await pool.query(sql, [increment, photoCardId]);
-    return result.affectedRows;
+  const count = await prisma.$executeRaw`
+    UPDATE photo_card
+    SET total_supply = total_supply + ${increment}, upt_date = NOW()
+    WHERE id = ${Number(photoCardId)}
+  `;
+  return typeof count === "number" ? count : 1;
 }
 
-// total_supply를 지정된 값으로 업데이트
 async function updateTotalSupply(photoCardId, totalSupply) {
-    const sql = `
-        UPDATE photo_card
-        SET total_supply = ?, upt_date = NOW()
-        WHERE photo_card_id = ?
-    `;
-    const [result] = await pool.query(sql, [totalSupply, photoCardId]);
-    return result.affectedRows;
+  const result = await prisma.photoCard.updateMany({
+    where: { id: Number(photoCardId) },
+    data: { totalSupply: Number(totalSupply) },
+  });
+  return result.count;
 }
 
-async function createPhotocard({ card_name, card_type, description }) {
-    const query = `INSERT INTO photocard (card_name, card_type, description, created_at) VALUES (?, ?, ?, NOW())`;
-    const params = [card_name, card_type, description];
-    const [result] = await db.query(query, params);
-    return result.insertId;
+// Legacy createPhotocard (card_name, card_type, description, owner_id) - minimal PhotoCard for old flow
+async function createPhotocard({ card_name, card_type, description, owner_id }) {
+  const creatorUserId = owner_id ? Number(owner_id) : null;
+  if (creatorUserId == null) throw new Error("owner_id required for createPhotocard");
+  const card = await prisma.photoCard.create({
+    data: {
+      creatorUserId,
+      name: card_name ?? "Untitled",
+      description: description ?? null,
+      genre: card_type ?? null,
+    },
+  });
+  return { id: card.id };
 }
 
 export default {
-    countMonthlyByCreatorUserId,
-    createPhotoCard,
-    listPhotoCards,
-    getPhotoCardById,
-    updatePhotoCardById,
-    createPhotocard,
-    findDuplicatePhotoCard,
-    incrementTotalSupply,
-    updateTotalSupply,
+  countMonthlyByCreatorUserId,
+  createPhotoCard,
+  listPhotoCards,
+  getPhotoCardById,
+  updatePhotoCardById,
+  createPhotocard,
+  findDuplicatePhotoCard,
+  incrementTotalSupply,
+  updateTotalSupply,
 };

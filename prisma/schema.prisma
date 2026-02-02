@@ -1,0 +1,137 @@
+// Prisma schema for PostgreSQL
+// https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ========== User (table name "user" for compatibility)
+model User {
+  id           Int      @id @default(autoincrement())
+  email        String   @unique
+  nickname     String
+  passwordHash String?  @map("password_hash")
+  points       Int      @default(0)
+  regDate      DateTime @default(now()) @map("reg_date")
+  uptDate      DateTime @updatedAt @map("upt_date")
+
+  // relations
+  createdPhotoCards   PhotoCard[]     @relation("PhotoCardCreator")
+  userCards           UserCard[]
+  listingsAsSeller    Listing[]       @relation("ListingSeller")
+  purchasesAsBuyer    Purchase[]
+  pointHistories      PointHistory[]
+  pointBoxDraws       PointBoxDraw[]
+
+  @@map("user")
+}
+
+// ========== Photo card
+model PhotoCard {
+  id           Int      @id @default(autoincrement())
+  creatorUserId Int    @map("creator_user_id")
+  name         String
+  description  String?
+  genre        String?
+  grade        String?
+  minPrice     Int      @default(0) @map("min_price")
+  totalSupply  Int      @default(0) @map("total_supply")
+  imageUrl     String?  @map("image_url")
+  regDate      DateTime @default(now()) @map("reg_date")
+  uptDate      DateTime @updatedAt @map("upt_date")
+
+  creatorUser User     @relation("PhotoCardCreator", fields: [creatorUserId], references: [id])
+  userCards   UserCard[]
+
+  @@map("photo_card")
+}
+
+// ========== User card (user's owned photocards)
+model UserCard {
+  id          Int      @id @default(autoincrement())
+  userId      Int      @map("user_id")
+  photoCardId Int      @map("photo_card_id")
+  quantity    Int      @default(0)
+  regDate     DateTime @default(now()) @map("reg_date")
+  uptDate     DateTime @updatedAt @map("upt_date")
+
+  user      User      @relation(fields: [userId], references: [id])
+  photoCard PhotoCard @relation(fields: [photoCardId], references: [id])
+  listings  Listing[]
+
+  @@unique([userId, photoCardId])
+  @@map("user_card")
+}
+
+// ========== Listing (marketplace listing)
+model Listing {
+  id           Int      @id @default(autoincrement())
+  userCardId   Int      @map("user_card_id")
+  sellerUserId Int      @map("seller_user_id")
+  saleType     String   @map("sale_type")   // e.g. SELL, SELL_OR_EXCHANGE
+  status       String   // ACTIVE, SOLD_OUT, CANCELLED
+  quantity     Int
+  pricePerUnit Decimal  @map("price_per_unit") @db.Decimal(12, 2)
+  desiredGrade String?  @map("desired_grade")
+  desiredGenre String?  @map("desired_genre")
+  desiredDesc  String?  @map("desired_desc")
+  regDate      DateTime @default(now()) @map("reg_date")
+  uptDate      DateTime @updatedAt @map("upt_date")
+
+  userCard UserCard @relation(fields: [userCardId], references: [id])
+  seller   User    @relation("ListingSeller", fields: [sellerUserId], references: [id])
+  purchases Purchase[]
+
+  @@map("listing")
+}
+
+// ========== Purchase (card purchase record)
+model Purchase {
+  id          Int      @id @default(autoincrement())
+  buyerUserId Int      @map("buyer_user_id")
+  listingId   Int      @map("listing_id")
+  quantity    Int
+  unitPrice   Decimal  @map("unit_price") @db.Decimal(12, 2)
+  totalPrice  Decimal  @map("total_price") @db.Decimal(12, 2)
+  regDate     DateTime @default(now()) @map("reg_date")
+
+  buyer   User    @relation(fields: [buyerUserId], references: [id])
+  listing Listing @relation(fields: [listingId], references: [id])
+
+  @@map("purchase")
+}
+
+// ========== Point history
+model PointHistory {
+  id            Int      @id @default(autoincrement())
+  userId        Int      @map("user_id")
+  amount        Int
+  type          String
+  refEntityType String?  @map("ref_entity_type")
+  refEntityId   Int?     @map("ref_entity_id")
+  regDate       DateTime @default(now()) @map("reg_date")
+
+  user        User          @relation(fields: [userId], references: [id])
+  pointBoxDraw PointBoxDraw?
+
+  @@map("point_history")
+}
+
+// ========== Point box draw
+model PointBoxDraw {
+  id              Int      @id @default(autoincrement())
+  userId          Int      @map("user_id")
+  pointHistoryId  Int      @unique @map("point_history_id")
+  earnedPoints    Int      @map("earned_points")
+  regDate         DateTime @default(now()) @map("reg_date")
+
+  user         User         @relation(fields: [userId], references: [id])
+  pointHistory PointHistory @relation(fields: [pointHistoryId], references: [id])
+
+  @@map("point_box_draw")
+}
