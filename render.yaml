@@ -1,0 +1,8 @@
+# Render Blueprint: use this so the web service starts correctly.
+# Start command must be "npm start" (runs server.js), NOT "node src/app.js".
+services:
+  - type: web
+    name: express-favorite-be
+    runtime: node
+    buildCommand: npm install
+    startCommand: npm start

@@ -154,12 +154,48 @@ export async function getAuthGoogleCallback(req, res, next) {
       name: profile.name,
     });
 
-    const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: "7d" });
-    res.cookie(JWT_COOKIE_NAME, token, COOKIE_OPTIONS);
-    return res.redirect(FRONTEND_URL + "/mygallery");
+    // Set cookie in a 200 response so browsers persist it (some drop Set-Cookie on 302 to another origin)
+    const doneToken = jwt.sign(
+      { userId: user.id, purpose: "google-done" },
+      JWT_SECRET,
+      { expiresIn: "60s" }
+    );
+    const doneUrl = `${baseUrl}/users/auth/google/done?t=${encodeURIComponent(doneToken)}&next=/mygallery`;
+    return res.redirect(doneUrl);
   } catch (err) {
     console.error("Google OAuth callback error:", err?.response?.data ?? err.message);
     const message = err.response?.data?.error_description ?? err.message ?? "google_login_failed";
     return res.redirect(`${FRONTEND_URL}/auth/login?error=${encodeURIComponent(message)}`);
+  }
+}
+
+/**
+ * GET /users/auth/google/done?t=...&next=/mygallery
+ * Sets JWT cookie in a 200 response, then redirects to frontend via HTML.
+ * Ensures the cookie is persisted (some browsers drop Set-Cookie on 302 to another origin).
+ */
+export function getAuthGoogleDone(req, res, next) {
+  const { t: doneToken, next: nextPath } = req.query;
+  if (!doneToken) {
+    return res.redirect(`${FRONTEND_URL}/auth/login?error=missing_token`);
+  }
+  try {
+    const payload = jwt.verify(doneToken, JWT_SECRET);
+    if (payload.purpose !== "google-done" || !payload.userId) {
+      return res.redirect(`${FRONTEND_URL}/auth/login?error=invalid_token`);
+    }
+    const token = jwt.sign({ userId: payload.userId }, JWT_SECRET, { expiresIn: "7d" });
+    res.cookie(JWT_COOKIE_NAME, token, COOKIE_OPTIONS);
+    const redirectTo = typeof nextPath === "string" && nextPath.startsWith("/")
+      ? nextPath
+      : "/mygallery";
+    const baseTarget = FRONTEND_URL + redirectTo;
+    const target = baseTarget + "#auth=" + encodeURIComponent(token);
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    return res.status(200).send(
+      `<!DOCTYPE html><html><head><meta charset="utf-8"><title>로그인 완료</title></head><body><p>로그인 완료. 이동 중...</p><script>location.replace(${JSON.stringify(target)});</script><noscript><a href="${baseTarget}">여기를 클릭하세요</a></noscript></body></html>`
+    );
+  } catch (err) {
+    return res.redirect(`${FRONTEND_URL}/auth/login?error=invalid_token`);
   }
 }
