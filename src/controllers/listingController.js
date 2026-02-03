@@ -1,5 +1,31 @@
 import listingService from "../services/listingService.js";
 
+// 내 판매 리스팅 목록 (인증 필요, seller_user_id = req.userId)
+export async function listMy(req, res, next) {
+    try {
+        const sellerUserId = req.userId;
+        if (!sellerUserId) {
+            return res.status(401).json({ ok: false, message: "인증이 필요합니다." });
+        }
+        const limit = req.query?.limit;
+        const cursor = req.query?.cursor;
+        const sortBy = req.query?.sortBy || "reg_date";
+        const sortOrder = req.query?.sortOrder || "DESC";
+        const status = req.query?.status || "ACTIVE";
+        const data = await listingService.listListings({
+            limit,
+            cursor,
+            sortBy,
+            sortOrder,
+            status,
+            sellerUserId,
+        });
+        return res.json({ ok: true, data });
+    } catch (err) {
+        return next(err);
+    }
+}
+
 // 리스팅 생성
 export async function create(req, res, next) {
     try {

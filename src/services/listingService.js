@@ -89,8 +89,8 @@ async function createListing(sellerUserId, payload) {
     return mapRow(listing);
 }
 
-// 리스팅 목록 조회
-async function listListings({ limit = 20, cursor = null, sortBy = "reg_date", sortOrder = "DESC", status = "ACTIVE" } = {}) {
+// 리스팅 목록 조회 (sellerUserId 있으면 해당 판매자 리스팅만)
+async function listListings({ limit = 20, cursor = null, sortBy = "reg_date", sortOrder = "DESC", status = "ACTIVE", sellerUserId = null } = {}) {
     const parsedLimit = Math.min(Number(limit) || 20, 50);
     const parsedCursor = cursor != null ? Number(cursor) : null;
 
@@ -131,6 +131,7 @@ async function listListings({ limit = 20, cursor = null, sortBy = "reg_date", so
         sortBy,
         sortOrder: sortOrder.toUpperCase(),
         status,
+        sellerUserId: sellerUserId != null ? Number(sellerUserId) : null,
     });
 
     const items = rows.map(mapRow);
