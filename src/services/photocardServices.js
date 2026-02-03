@@ -1,5 +1,6 @@
 import photocardRepo from "../repositories/photocardRepository.js";
 import { createUserCard, findAllByUserId, getTotalQuantityByPhotoCardId } from "../repositories/userCardRepository.js";
+import pointService from "./pointService.js";
 
 const MONTHLY_LIMIT = Number(process.env.PHOTO_CARD_MONTHLY_LIMIT || 3);
 
@@ -195,6 +196,9 @@ async function createPhotoCard(creatorUserId, payload) {
     // total_supply를 실제 user_card의 quantity 합계로 동기화
     const actualTotalSupply = await getTotalQuantityByPhotoCardId(id);
     await photocardRepo.updateTotalSupply(id, actualTotalSupply);
+
+    // 포토카드 추가 보상: +20 포인트
+    await pointService.updateUserPoints(creatorUserId, 20, "PHOTO_CARD_CREATE", "PHOTO_CARD", id);
 
     return { photoCardId: id, imageUrl: imagePath };
 }
@@ -502,6 +506,9 @@ export async function createPhotoCardWithUserCard(creatorUserId, payload) {
     // total_supply를 실제 user_card의 quantity 합계로 동기화
     const actualTotalSupply = await getTotalQuantityByPhotoCardId(photoCardId);
     await photocardRepo.updateTotalSupply(photoCardId, actualTotalSupply);
+
+    // 포토카드 추가 보상: +100 포인트
+    await pointService.updateUserPoints(creatorUserId, 100, "PHOTO_CARD_CREATE", "PHOTO_CARD", photoCardId);
 
     return { photoCardId, createdUserId: creatorUserId, quantity: totalSupply };
 }
