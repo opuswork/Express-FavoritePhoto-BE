@@ -16,6 +16,7 @@ const COOKIE_OPTIONS = {
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
+// Production: set to frontend origin (e.g. https://choicephoto.app) for OAuth redirects
 const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
 
 /**
@@ -123,13 +124,16 @@ export async function getMyCards(req, res, next) {
  * POST /users/logout
  * Clear JWT cookie. Must use same path, sameSite, secure as when cookie was set
  * so the browser actually removes it (especially with SameSite=None in production).
+ * Explicit maxAge: 0 helps cross-origin clear (e.g. choicephoto.app → backend).
  */
 export function logout(req, res) {
+  const isProduction = process.env.NODE_ENV === "production";
   res.clearCookie(JWT_COOKIE_NAME, {
     path: "/",
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+    secure: isProduction,
+    sameSite: isProduction ? "none" : "lax",
+    maxAge: 0,
   });
   return res.status(200).json({ message: "로그아웃되었습니다." });
 }

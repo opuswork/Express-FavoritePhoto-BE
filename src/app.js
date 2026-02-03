@@ -21,7 +21,7 @@ app.set("trust proxy", 1);
 // 미들웨어
 app.use(express.json());
 app.use(cookieParser());
-// credentials 사용 시 origin은 * 불가 → 구체적 출처 지정
+// credentials 사용 시 origin은 * 불가 → 구체적 출처 지정 (production: e.g. https://choicephoto.app)
 app.use(
   cors({
     origin: process.env.CORS_ORIGIN || "http://localhost:3000",
