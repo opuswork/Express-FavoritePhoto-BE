@@ -507,8 +507,8 @@ export async function createPhotoCardWithUserCard(creatorUserId, payload) {
     const actualTotalSupply = await getTotalQuantityByPhotoCardId(photoCardId);
     await photocardRepo.updateTotalSupply(photoCardId, actualTotalSupply);
 
-    // 포토카드 추가 보상: +100 포인트
-    await pointService.updateUserPoints(creatorUserId, 100, "PHOTO_CARD_CREATE", "PHOTO_CARD", photoCardId);
+    // 포토카드 추가 보상: +20 포인트
+    await pointService.updateUserPoints(creatorUserId, 20, "PHOTO_CARD_CREATE", "PHOTO_CARD", photoCardId);
 
     return { photoCardId, createdUserId: creatorUserId, quantity: totalSupply };
 }
