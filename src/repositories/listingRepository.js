@@ -82,10 +82,14 @@ async function listListings({
   sortBy = "reg_date",
   sortOrder = "DESC",
   status = "ACTIVE",
+  sellerUserId = null,
 }) {
   const order = sortOrder.toUpperCase() === "ASC" ? "asc" : "desc";
   const orderField = sortBy === "price" ? "pricePerUnit" : "regDate";
   const where = { status };
+  if (sellerUserId != null && Number.isInteger(Number(sellerUserId))) {
+    where.sellerUserId = Number(sellerUserId);
+  }
   const orderBy = [{ [orderField]: order }, { id: "desc" }];
   const cursorClause =
     cursor != null
