@@ -128,11 +128,22 @@ async function purchaseCard(buyerUserId, listingId, quantity) {
       update: { quantity: { increment: qty } },
     });
 
-    const newQty = listing.quantity - qty;
-    const status = newQty === 0 ? "SOLD_OUT" : "ACTIVE";
+    // Atomic decrement so concurrent purchases don't overwrite (race fix)
+    const updatedListing = await tx.listing.update({
+      where: { id: Number(listingId) },
+      data: { quantity: { decrement: qty } },
+      select: { quantity: true },
+    });
+    const newQty = Number(updatedListing.quantity);
+    if (newQty < 0) {
+      const e = new Error(`구매 가능 수량 초과 (동시 구매로 인해 판매 완료되었을 수 있습니다)`);
+      e.status = 400;
+      throw e;
+    }
+    const status = newQty <= 0 ? "SOLD_OUT" : "ACTIVE";
     await tx.listing.update({
       where: { id: Number(listingId) },
-      data: { quantity: newQty, status },
+      data: { status },
     });
 
     const purchaseId = await purchaseRepo.createPurchase(
