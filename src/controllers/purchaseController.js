@@ -6,7 +6,7 @@ import purchaseService from "../services/purchaseService.js";
  */
 export async function purchase(req, res, next) {
   try {
-    const buyerUserId = req.user?.user_id ?? req.body?.buyerUserId;
+    const buyerUserId = req.userId ?? req.body?.buyerUserId;
     const listingId = req.body?.listingId;
     const quantity = req.body?.quantity;
 
@@ -36,7 +36,7 @@ export async function purchase(req, res, next) {
  */
 export async function listByBuyer(req, res, next) {
   try {
-    const buyerUserId = req.user?.user_id ?? req.params.buyerUserId ?? req.query.buyerUserId;
+    const buyerUserId = req.userId ?? req.params.buyerUserId ?? req.query.buyerUserId;
     if (!buyerUserId) {
       return res.status(400).json({ ok: false, error: "구매자 ID가 필요합니다." });
     }
@@ -54,7 +54,7 @@ export async function listByBuyer(req, res, next) {
  */
 export async function listBySeller(req, res, next) {
   try {
-    const sellerUserId = req.user?.user_id ?? req.params.sellerUserId ?? req.query.sellerUserId;
+    const sellerUserId = req.userId ?? req.params.sellerUserId ?? req.query.sellerUserId;
     if (!sellerUserId) {
       return res.status(400).json({ ok: false, error: "판매자 ID가 필요합니다." });
     }
