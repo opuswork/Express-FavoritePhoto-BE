@@ -83,6 +83,19 @@ export async function update(req, res, next) {
     }
 }
 
+// DELETE /api/photo-cards/:id (creator only)
+export async function destroy(req, res, next) {
+    try {
+        const id = Number(req.params?.id);
+        const creatorUserId = Number(req.body?.creatorUserId);
+
+        const data = await photocardService.deletePhotoCard(id, creatorUserId);
+        return res.json({ ok: true, data });
+    } catch (err) {
+        return next(err);
+    }
+}
+
 export async function createPhotocardWithUserCard(req, res, next) {
     try {
         const { card_name, card_type, description, owner_id, quantity } = req.body;

@@ -398,11 +398,45 @@ async function updatePhotoCard(photoCardId, creatorUserId, patch) {
     return mapRow(updated);
 }
 
+async function deletePhotoCard(photoCardId, creatorUserId) {
+    const id = Number(photoCardId);
+    if (!Number.isInteger(id) || id <= 0) {
+        const err = new Error("VALIDATION_ERROR");
+        err.status = 400;
+        err.meta = { field: "id", rule: "must be a positive integer" };
+        throw err;
+    }
+    if (!Number.isInteger(creatorUserId) || creatorUserId <= 0) {
+        const err = new Error("VALIDATION_ERROR");
+        err.status = 400;
+        err.meta = { field: "creatorUserId", rule: "must be a positive integer" };
+        throw err;
+    }
+
+    const existing = await photocardRepo.getPhotoCardById(id);
+    if (!existing) {
+        const err = new Error("NOT_FOUND");
+        err.status = 404;
+        err.meta = { photoCardId: id };
+        throw err;
+    }
+    if (Number(existing.creator_user_id) !== creatorUserId) {
+        const err = new Error("FORBIDDEN");
+        err.status = 403;
+        err.meta = { reason: "NOT_OWNER" };
+        throw err;
+    }
+
+    const deleted = await photocardRepo.deletePhotoCardById(id, creatorUserId);
+    return { deleted: deleted === 1 };
+}
+
 export default {
     createPhotoCard,
     listPhotoCards,
     getPhotoCardById,
     updatePhotoCard,
+    deletePhotoCard,
     listUserPhotoCards,
 };
 
