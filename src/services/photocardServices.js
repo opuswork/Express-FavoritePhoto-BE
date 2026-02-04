@@ -2,7 +2,7 @@ import photocardRepo from "../repositories/photocardRepository.js";
 import { createUserCard, findAllByUserId, getTotalQuantityByPhotoCardId } from "../repositories/userCardRepository.js";
 import pointService from "./pointService.js";
 
-const MONTHLY_LIMIT = Number(process.env.PHOTO_CARD_MONTHLY_LIMIT || 3);
+const MONTHLY_LIMIT = Number(process.env.PHOTO_CARD_MONTHLY_LIMIT || 10);
 
 const ALLOWED_GRADES = new Set(["common", "rare", "epic", "legendary"]);
 const ALLOWED_GENRES = new Set([
@@ -88,7 +88,7 @@ async function createPhotoCard(creatorUserId, payload) {
         to
     );
     if (used >= MONTHLY_LIMIT) {
-        const err = new Error("MONTHLY_LIMIT_EXCEEDED");
+        const err = new Error("월별 카드생성횟수를 초과하였습니다. 다음달에 카드를 올릴수 있습니다.");
         err.status = 429;
         err.meta = { limit: MONTHLY_LIMIT, used };
         throw err;
