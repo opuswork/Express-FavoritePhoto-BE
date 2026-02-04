@@ -367,16 +367,17 @@ async function updatePhotoCard(photoCardId, creatorUserId, patch) {
             throw err;
         }
 
+        // Allow either (1) local public path or (2) external https URL (e.g. Vercel Blob), same as create
+        const isExternalUrl = raw.startsWith("https://");
         const expectedPathPrefix = `/public/users/${creatorUserId}/photocards/`;
-        const imagePath = normalizeToPath(raw);
-        if (!imagePath.startsWith(expectedPathPrefix)) {
+        const imagePath = isExternalUrl ? raw : normalizeToPath(raw);
+        if (!isExternalUrl && !imagePath.startsWith(expectedPathPrefix)) {
             const err = new Error("INVALID_IMAGE_URL");
             err.status = 400;
             err.meta = { expectedPathPrefix };
             throw err;
         }
 
-        // DB에는 path만 저장 (호스트/포트는 환경마다 달라질 수 있음)
         nextPatch.imageUrl = imagePath;
     }
 
