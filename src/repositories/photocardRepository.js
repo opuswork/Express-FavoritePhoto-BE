@@ -146,6 +146,27 @@ async function createPhotocard({ card_name, card_type, description, owner_id }) 
   return { id: card.id };
 }
 
+/** Delete photo card and related data: purchases -> listings -> user_cards -> photo_card */
+async function deletePhotoCardById(photoCardId, creatorUserId) {
+  const id = Number(photoCardId);
+  const creator = Number(creatorUserId);
+  const card = await prisma.photoCard.findUnique({
+    where: { id },
+    include: { userCards: { include: { listings: true } } },
+  });
+  if (!card) return 0;
+  if (card.creatorUserId !== creator) return 0;
+
+  await prisma.$transaction(async (tx) => {
+    const listingIds = card.userCards.flatMap((uc) => uc.listings.map((l) => l.id));
+    await tx.purchase.deleteMany({ where: { listingId: { in: listingIds } } });
+    await tx.listing.deleteMany({ where: { userCard: { photoCardId: id } } });
+    await tx.userCard.deleteMany({ where: { photoCardId: id } });
+    await tx.photoCard.delete({ where: { id } });
+  });
+  return 1;
+}
+
 export default {
   countMonthlyByCreatorUserId,
   createPhotoCard,
@@ -156,4 +177,5 @@ export default {
   findDuplicatePhotoCard,
   incrementTotalSupply,
   updateTotalSupply,
+  deletePhotoCardById,
 };
