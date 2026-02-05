@@ -121,10 +121,76 @@ async function getAllUsers() {
   });
 }
 
+/** Validate new password: 8+ chars, letter, number, special. Returns error message or null. */
+function validateNewPassword(value) {
+  if (!value || typeof value !== "string") return "비밀번호를 입력해 주세요.";
+  const s = value;
+  if (s.length < 8 || s.length > 128) return "비밀번호는 8자 이상 128자 이하여야 합니다.";
+  if (!/[a-zA-Z]/.test(s)) return "비밀번호에 영문자를 포함해 주세요.";
+  if (!/[0-9]/.test(s)) return "비밀번호에 숫자를 포함해 주세요.";
+  if (!/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(s)) return "비밀번호에 특수문자를 포함해 주세요.";
+  return null;
+}
+
+/**
+ * Change password: verify current with bcrypt, validate new, ensure new !== current, hash and update.
+ * Caller should clear session/cookie after success so user must re-login.
+ */
+async function changePassword(userId, currentPassword, newPassword) {
+  if (!userId) {
+    const err = new Error("인증이 필요합니다.");
+    err.status = 401;
+    throw err;
+  }
+  if (!currentPassword || typeof currentPassword !== "string") {
+    const err = new Error("현재 비밀번호를 입력해 주세요.");
+    err.status = 400;
+    throw err;
+  }
+
+  const user = await userRepository.findById(userId);
+  if (!user) {
+    const err = new Error("유저를 찾을 수 없습니다.");
+    err.status = 404;
+    throw err;
+  }
+  if (!user.password_hash) {
+    const err = new Error("비밀번호로 가입한 계정만 비밀번호를 변경할 수 있습니다.");
+    err.status = 400;
+    throw err;
+  }
+
+  const match = await bcrypt.compare(currentPassword, user.password_hash);
+  if (!match) {
+    const err = new Error("현재 비밀번호가 올바르지 않습니다.");
+    err.status = 401;
+    throw err;
+  }
+
+  const validationErr = validateNewPassword(newPassword);
+  if (validationErr) {
+    const err = new Error(validationErr);
+    err.status = 400;
+    throw err;
+  }
+
+  if (currentPassword === newPassword) {
+    const err = new Error("새 비밀번호는 현재 비밀번호와 달라야 합니다.");
+    err.status = 400;
+    throw err;
+  }
+
+  const password_hash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
+  await userRepository.update(userId, { password_hash });
+  return { ok: true };
+}
+
 export default {
   createUser,
   getUserById,
   getAllUsers,
   login,
   loginWithGoogle,
+  changePassword,
+  validateNewPassword,
 };
