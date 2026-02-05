@@ -62,7 +62,8 @@ async function getUserById(userId) {
     throw error;
   }
 
-  // 비밀번호 해시는 응답에서 제외
+  // 클라이언트에 비밀번호 변경 가능 여부만 전달 (Google 로그인 등은 password_hash가 null)
+  user.hasPassword = !!user.password_hash;
   delete user.password_hash;
 
   return user;
