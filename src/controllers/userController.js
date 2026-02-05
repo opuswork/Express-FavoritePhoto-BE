@@ -127,6 +127,11 @@ export async function getMyCards(req, res, next) {
  * Explicit maxAge: 0 helps cross-origin clear (e.g. choicephoto.app → backend).
  */
 export function logout(req, res) {
+  clearAuthCookie(res);
+  return res.status(200).json({ message: "로그아웃되었습니다." });
+}
+
+function clearAuthCookie(res) {
   const isProduction = process.env.NODE_ENV === "production";
   res.clearCookie(JWT_COOKIE_NAME, {
     path: "/",
@@ -135,7 +140,30 @@ export function logout(req, res) {
     sameSite: isProduction ? "none" : "lax",
     maxAge: 0,
   });
-  return res.status(200).json({ message: "로그아웃되었습니다." });
+}
+
+/**
+ * PATCH /users/me/password
+ * Body: { currentPassword, newPassword }
+ * Re-authenticates with current password, validates new, updates hash, then clears cookie (log out all devices).
+ */
+export async function changePassword(req, res, next) {
+  try {
+    const userId = req.userId;
+    const currentPassword = req.body?.currentPassword;
+    const newPassword = req.body?.newPassword;
+
+    await userService.changePassword(userId, currentPassword, newPassword);
+
+    clearAuthCookie(res);
+    return res.status(200).json({
+      message: "비밀번호가 변경되었습니다. 다시 로그인해 주세요.",
+      requireReLogin: true,
+    });
+  } catch (err) {
+    err.status = err.status ?? err.code ?? 400;
+    next(err);
+  }
 }
 
 /**
