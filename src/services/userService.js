@@ -1,5 +1,6 @@
 import bcrypt from "bcryptjs";
 import userRepository from "../repositories/userRepository.js";
+import { prisma } from "../db/prisma.js";
 
 const BCRYPT_ROUNDS = 10;
 
@@ -186,6 +187,62 @@ async function changePassword(userId, currentPassword, newPassword) {
   return { ok: true };
 }
 
+/**
+ * Confirm email change: verify code for newEmail, then update user's email and delete verification.
+ */
+async function confirmEmailChange(userId, newEmail, code) {
+  const email = typeof newEmail === "string" ? newEmail.trim() : "";
+  const codeStr = typeof code === "string" ? String(code).trim() : "";
+
+  if (!userId) {
+    const err = new Error("인증이 필요합니다.");
+    err.status = 401;
+    throw err;
+  }
+  if (!email || !email.includes("@")) {
+    const err = new Error("올바른 새 이메일을 입력해 주세요.");
+    err.status = 400;
+    throw err;
+  }
+  if (!codeStr || codeStr.length !== 6) {
+    const err = new Error("인증코드 6자리를 입력해 주세요.");
+    err.status = 400;
+    throw err;
+  }
+
+  const verification = await prisma.emailVerification.findUnique({
+    where: { email },
+  });
+  if (!verification) {
+    const err = new Error("인증 요청 내역을 찾을 수 없습니다. 새 이메일로 인증코드를 먼저 요청해 주세요.");
+    err.status = 404;
+    throw err;
+  }
+  if (new Date() > verification.expiresAt) {
+    const err = new Error("인증번호가 만료되었습니다. 다시 인증코드를 요청해 주세요.");
+    err.status = 410;
+    throw err;
+  }
+  if (verification.code !== codeStr) {
+    const err = new Error("인증번호가 일치하지 않습니다.");
+    err.status = 400;
+    throw err;
+  }
+
+  const existingUser = await userRepository.findByEmail(email);
+  if (existingUser && existingUser.id !== userId) {
+    const err = new Error("이미 사용 중인 이메일입니다.");
+    err.status = 409;
+    throw err;
+  }
+
+  await userRepository.update(userId, { email });
+  await prisma.emailVerification.delete({
+    where: { email },
+  });
+  return { ok: true };
+}
+
 export default {
   createUser,
   getUserById,
@@ -193,5 +250,6 @@ export default {
   login,
   loginWithGoogle,
   changePassword,
+  confirmEmailChange,
   validateNewPassword,
 };
