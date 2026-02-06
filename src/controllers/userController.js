@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken";
 import axios from "axios";
 import userService from "../services/userService.js";
+import { sendCongratsEmail } from "../services/emailService.js";
 import { findAllByUserId } from "../repositories/userCardRepository.js";
 
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key-change-in-production";
@@ -44,6 +45,11 @@ export async function register(req, res, next) {
       nickname: nickname.trim(),
       password,
     });
+    try {
+      await sendCongratsEmail(user.email, user.nickname);
+    } catch (emailErr) {
+      console.error("Congrats email after signup:", emailErr);
+    }
     const token = jwt.sign(
       { userId: user.id },
       JWT_SECRET,
