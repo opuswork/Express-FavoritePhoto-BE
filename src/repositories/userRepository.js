@@ -1,6 +1,6 @@
 import { prisma } from "../db/prisma.js";
 
-/** Map Prisma User to legacy row shape (id, email, nickname, password_hash, points, reg_date, upt_date) */
+/** Map Prisma User to legacy row shape (id, email, nickname, password_hash, points, reg_date, upt_date, emailVerified) */
 function toRow(user) {
   if (!user) return null;
   return {
@@ -11,6 +11,7 @@ function toRow(user) {
     points: user.points,
     reg_date: user.regDate,
     upt_date: user.uptDate,
+    emailVerified: user.emailVerified,
   };
 }
 
@@ -36,12 +37,13 @@ async function findByNickname(nickname) {
 }
 
 async function save(user) {
-  const { email, nickname, password_hash } = user;
+  const { email, nickname, password_hash, emailVerified } = user;
   const created = await prisma.user.create({
     data: {
       email,
       nickname,
       passwordHash: password_hash ?? null,
+      emailVerified: emailVerified ?? false,
     },
   });
   return toRow(created);

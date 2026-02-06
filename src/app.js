@@ -14,6 +14,7 @@ import sellRoutes from "./routes/sellRoutes.js";
 import pointBoxDrawRoutes from "./routes/pointBoxDrawRoutes.js";
 import purchaseRoutes from "./routes/purchaseRoutes.js";
 
+import authRoutes from "./routes/authRoutes.js";
 
 const app = express();
 app.set("trust proxy", 1);
@@ -39,13 +40,34 @@ app.get("/health", (req, res) => {
 });
 
 // 라우터
+
 app.use("/users", userRoutes);
+app.use("/api/auth", authRoutes);
 app.use("/api/photo-cards", photocardRoutes);
 app.use("/api/uploads", uploadRoutes);
 app.use("/api/listings", listingRoutes);
 app.use("/api/sell", sellRoutes);
 app.use("/api/point-box-draws", pointBoxDrawRoutes);
 app.use("/api/purchases", purchaseRoutes);
+
+app.get("/health", async (req, res) => {
+  try {
+    // DB 연결 상태 확인
+    await prisma.$queryRaw`SELECT 1`;
+    
+    res.status(200).json({
+      status: "UP",
+      timestamp: new Date().toISOString(),
+      database: "CONNECTED"
+    });
+  } catch (error) {
+    res.status(503).json({
+      status: "DOWN",
+      database: "ERROR",
+      message: error.message
+    });
+  }
+});
 
 // 에러 핸들러
 app.use(errorHandler);

@@ -1,4 +1,4 @@
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import userRepository from "../repositories/userRepository.js";
 
 const BCRYPT_ROUNDS = 10;
@@ -34,11 +34,12 @@ async function createUser(userData) {
     ? await bcrypt.hash(password, BCRYPT_ROUNDS)
     : null;
 
-  // 유저 생성
+  // 유저 생성 (이메일 인증 완료 후 가입이므로 emailVerified: true)
   const newUser = await userRepository.save({
     email,
     nickname,
     password_hash,
+    emailVerified: true,
   });
 
   // 비밀번호 해시는 응답에서 제외
