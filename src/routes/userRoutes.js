@@ -14,6 +14,7 @@ router.get("/me", requireAuth, userController.getMe);
 router.get("/me/cards", requireAuth, userController.getMyCards);
 router.get("/me/notifications", requireAuth, notificationController.getMyNotifications);
 router.patch("/me/password", requireAuth, rateLimitChangePassword, userController.changePassword);
+router.patch("/me/email", requireAuth, userController.changeEmail);
 
 router.get("/auth/google", userController.getAuthGoogle);
 router.get("/auth/google/callback", userController.getAuthGoogleCallback);

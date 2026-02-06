@@ -173,6 +173,29 @@ export async function changePassword(req, res, next) {
 }
 
 /**
+ * PATCH /users/me/email
+ * Body: { newEmail, code }
+ * Verifies 6-digit code for newEmail (from request-verification), then updates user email.
+ */
+export async function changeEmail(req, res, next) {
+  try {
+    const userId = req.userId;
+    const newEmail = req.body?.newEmail;
+    const code = req.body?.code;
+
+    await userService.confirmEmailChange(userId, newEmail, code);
+
+    return res.status(200).json({
+      ok: true,
+      message: "이메일이 변경되었습니다.",
+    });
+  } catch (err) {
+    err.status = err.status ?? err.code ?? 400;
+    next(err);
+  }
+}
+
+/**
  * GET /users/auth/google
  * Redirect to Google OAuth consent screen
  */
