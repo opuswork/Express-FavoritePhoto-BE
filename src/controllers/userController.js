@@ -21,7 +21,7 @@ const COOKIE_OPTIONS = {
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 // Production: set to frontend origin (e.g. https://choicephoto.app) for OAuth redirects
-const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
+const FRONTEND_URL = process.env.FRONTEND_URL || "https://choicephoto.app";
 
 /**
  * POST /users/register
@@ -142,13 +142,15 @@ export function logout(req, res) {
 
 function clearAuthCookie(res) {
   const isProduction = process.env.NODE_ENV === "production";
-  res.clearCookie(JWT_COOKIE_NAME, {
+  const options = {
     path: "/",
     httpOnly: true,
     secure: isProduction,
     sameSite: isProduction ? "none" : "lax",
     maxAge: 0,
-  });
+  };
+  if (COOKIE_OPTIONS.domain) options.domain = COOKIE_OPTIONS.domain;
+  res.clearCookie(JWT_COOKIE_NAME, options);
 }
 
 /**
