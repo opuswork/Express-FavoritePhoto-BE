@@ -13,6 +13,9 @@ const COOKIE_OPTIONS = {
   sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
   maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
   path: "/",
+  domain: process.env.NODE_ENV === "production"
+    ? ".choicephoto.app"
+    : undefined,
 };
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
